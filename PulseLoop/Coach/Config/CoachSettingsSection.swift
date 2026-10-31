@@ -266,16 +266,7 @@ struct CoachSettingsSection: View {
                     onRemove: removeMiniMaxKey
                 )
             } else if effectiveKeyProvider == .userAnthropicKey {
-                apiKeyField(
-                    placeholder: "sk-ant-…",
-                    hint: "Stored only in your device Keychain. Used to call Anthropic directly.",
-                    draft: $anthropicKeyDraft,
-                    showRaw: $showAnthropicKey,
-                    hasSaved: hasAnthropicKey,
-                    error: anthropicKeyError,
-                    onSave: saveAnthropicKey,
-                    onRemove: removeAnthropicKey
-                )
+                anthropicKeyField
             }
 
             if store.settings.providerMode == .localOpenAICompat {
@@ -735,6 +726,26 @@ struct CoachSettingsSection: View {
         } catch {
             minimaxKeyError = error.localizedDescription
         }
+    }
+}
+
+// MARK: - Anthropic key field
+
+// Kept in an extension (same file, so it can reach the private state) to keep the main
+// struct under SwiftLint's `type_body_length` limit.
+extension CoachSettingsSection {
+    @ViewBuilder
+    fileprivate var anthropicKeyField: some View {
+        apiKeyField(
+            placeholder: "sk-ant-…",
+            hint: "Stored only in your device Keychain. Used to call Anthropic directly.",
+            draft: $anthropicKeyDraft,
+            showRaw: $showAnthropicKey,
+            hasSaved: hasAnthropicKey,
+            error: anthropicKeyError,
+            onSave: saveAnthropicKey,
+            onRemove: removeAnthropicKey
+        )
     }
 
     private func saveAnthropicKey() {

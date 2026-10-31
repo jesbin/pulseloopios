@@ -31,15 +31,24 @@ enum CoachClientResolver {
             let available = AppleOnDeviceAvailability.current.isAvailable
             return (available ? "on-device" : nil, onDevice)
         default:
+            let stores = KeyStores(
+                openAI: openAIKeyStore, gemini: geminiKeyStore, openRouter: openRouterKeyStore,
+                minimax: minimaxKeyStore, local: localKeyStore, anthropic: anthropicKeyStore)
             return directClient(
-                settings.providerMode, settings: settings,
-                openAIKeyStore: openAIKeyStore, geminiKeyStore: geminiKeyStore,
-                openRouterKeyStore: openRouterKeyStore, minimaxKeyStore: minimaxKeyStore,
-                localKeyStore: localKeyStore,
-                anthropicKeyStore: anthropicKeyStore,
-                openAIClientFactory: openAIClientFactory
-            )
+                settings.providerMode, settings: settings, stores: stores,
+                openAIClientFactory: openAIClientFactory)
         }
+    }
+
+    /// The per-provider key stores, bundled so `directClient` stays under SwiftLint's
+    /// parameter-count limit as providers are added.
+    private struct KeyStores {
+        let openAI: APIKeyStore
+        let gemini: APIKeyStore
+        let openRouter: APIKeyStore
+        let minimax: APIKeyStore
+        let local: APIKeyStore
+        let anthropic: APIKeyStore
     }
 
     /// Builds a client for a concrete (non-on-device) provider, mirroring the
@@ -48,30 +57,25 @@ enum CoachClientResolver {
     private static func directClient(
         _ mode: CoachProviderMode,
         settings: CoachSettings,
-        openAIKeyStore: APIKeyStore,
-        geminiKeyStore: APIKeyStore,
-        openRouterKeyStore: APIKeyStore,
-        minimaxKeyStore: APIKeyStore,
-        localKeyStore: APIKeyStore,
-        anthropicKeyStore: APIKeyStore,
+        stores: KeyStores,
         openAIClientFactory: (String) -> ResponsesClient
     ) -> (key: String?, client: ResponsesClient) {
         switch mode {
         case .userAnthropicKey:
-            let key = (try? anthropicKeyStore.readKey()) ?? nil
+            let key = (try? stores.anthropic.readKey()) ?? nil
             return (key, AnthropicClient(apiKey: key ?? "", model: settings.anthropicModel))
         case .userGeminiKey:
-            let key = (try? geminiKeyStore.readKey()) ?? nil
+            let key = (try? stores.gemini.readKey()) ?? nil
             return (key, GeminiClient(apiKey: key ?? ""))
         case .userOpenRouterKey:
-            let key = (try? openRouterKeyStore.readKey()) ?? nil
+            let key = (try? stores.openRouter.readKey()) ?? nil
             return (key, OpenRouterClient(
                 apiKey: key ?? "",
                 model: settings.openRouterModel,
                 privacyRouting: settings.orEnablePrivacyRouting,
                 providerSort: settings.orProviderSort))
         case .userMiniMaxKey:
-            let key = (try? minimaxKeyStore.readKey()) ?? nil
+            let key = (try? stores.minimax.readKey()) ?? nil
             return (key, MiniMaxClient(apiKey: key ?? "", model: settings.minimaxModel))
         case .localOpenAICompat:
             // Readiness is a base URL that would actually work — `validate`, not "non-empty".
@@ -81,7 +85,7 @@ enum CoachClientResolver {
             // The key may legitimately be absent and is passed through as nil so the client omits
             // the Authorization header entirely.
             let baseURL = settings.resolvedLocalBaseURL
-            let key = (try? localKeyStore.readKey()) ?? nil
+            let key = (try? stores.local.readKey()) ?? nil
             let ready = LocalEndpoint.validate(baseURL) == nil ? baseURL : nil
             return (ready, LocalOpenAICompatClient(
                 baseURL: baseURL,
@@ -94,7 +98,7 @@ enum CoachClientResolver {
         default:
             // userOpenAIKey / offlineStub / backendProxy (and appleOnDevice never
             // reaches here) all use the OpenAI key + factory.
-            let key = (try? openAIKeyStore.readKey()) ?? nil
+            let key = (try? stores.openAI.readKey()) ?? nil
             return (key, openAIClientFactory(key ?? ""))
         }
     }
