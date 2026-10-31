@@ -60,6 +60,11 @@ enum CoachPricingCatalog {
         "google/gemini-2.5-flash": CoachModelPrice(inputPer1M: 0.30, cachedInputPer1M: 0.03, outputPer1M: 2.50),
         "google/gemini-2.5-pro": CoachModelPrice(inputPer1M: 1.25, cachedInputPer1M: 0.125, outputPer1M: 10.00),
         "deepseek/deepseek-v4-flash": CoachModelPrice(inputPer1M: 0.09, cachedInputPer1M: nil, outputPer1M: 0.18), // OpenRouter routes below DeepSeek's direct $0.14/$0.28
+        // Anthropic (native) — AnthropicModel enum. Haiku 5.5 is the ≤100k-token tier
+        // ($0.50 / $2.50 beyond). Cache reads bill at 10% of input (5% on Opus).
+        "claude-sonnet-5-5": CoachModelPrice(inputPer1M: 2.00, cachedInputPer1M: 0.20, outputPer1M: 10.00),
+        "claude-opus-5-5": CoachModelPrice(inputPer1M: 4.00, cachedInputPer1M: 0.20, outputPer1M: 20.00),
+        "claude-haiku-5-5": CoachModelPrice(inputPer1M: 0.10, cachedInputPer1M: 0.01, outputPer1M: 0.50),
         // MiniMax — MiniMaxModel enum. -highspeed variants bill 2x the standard
         // input/output rate; M2.5/M2.7 retire Nov 18 2026.
         "minimax-m3": CoachModelPrice(inputPer1M: 0.30, cachedInputPer1M: 0.06, outputPer1M: 1.20), // ≤512k-token tier; >512k bills 2x

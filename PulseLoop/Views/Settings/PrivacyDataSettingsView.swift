@@ -321,6 +321,7 @@ struct PrivacyDataSettingsView: View {
         try? GeminiKeychainStore().deleteKey()
         try? OpenRouterKeychainStore().deleteKey()
         try? MiniMaxKeychainStore().deleteKey()
+        try? AnthropicKeychainStore().deleteKey()
         try? StravaKeychainTokenStore().delete()
 
         // 3. Wipe UserDefaults (metric prefs, coach settings, calibration, remembered ring, flags, …).

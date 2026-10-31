@@ -7,6 +7,9 @@ enum CoachProviderMode: String, Codable, CaseIterable, Identifiable {
     case offlineStub
     case appleOnDevice
     case userOpenAIKey
+    /// Anthropic's Messages API directly (Claude), with the user's own key. Added after the
+    /// existing cases; stored values are raw strings, so this doesn't disturb anyone's settings.
+    case userAnthropicKey
     case userGeminiKey
     case userOpenRouterKey
     case userMiniMaxKey
@@ -23,6 +26,7 @@ enum CoachProviderMode: String, Codable, CaseIterable, Identifiable {
         case .offlineStub: return "Offline"
         case .appleOnDevice: return "On-device (Apple)"
         case .userOpenAIKey: return "OpenAI"
+        case .userAnthropicKey: return "Anthropic (Claude)"
         case .userGeminiKey: return "Gemini"
         case .userOpenRouterKey: return "OpenRouter"
         case .userMiniMaxKey: return "MiniMax"
@@ -88,6 +92,39 @@ enum ReasoningEffort: String, CaseIterable, Identifiable {
     static let common: [ReasoningEffort] = [.low, .medium, .high]
     /// GPT-6 Sol/Astra and Claude 5.5.
     static let lowToMax: [ReasoningEffort] = [.low, .medium, .high, .xhigh, .max]
+}
+
+/// Preset Claude model choices for the direct Anthropic provider. Exact API model IDs (no date
+/// suffix). Sonnet is the default: the coach is a chatty, tool-heavy loop where its price and
+/// latency fit best; Opus is for harder analysis and Haiku for the cheapest, fastest turns.
+/// All three run adaptive thinking (the client never sends `thinking`) and accept the full
+/// `output_config.effort` range.
+enum AnthropicModel: String, CaseIterable, Identifiable {
+    case sonnet = "claude-sonnet-5-5"
+    case opus   = "claude-opus-5-5"
+    case haiku  = "claude-haiku-5-5"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .sonnet: return "Claude Sonnet 5.5"
+        case .opus:   return "Claude Opus 5.5"
+        case .haiku:  return "Claude Haiku 5.5"
+        }
+    }
+
+    var blurb: String {
+        switch self {
+        case .sonnet: return "Balanced, great for coaching (default)"
+        case .opus:   return "Most capable"
+        case .haiku:  return "Fastest, lowest cost"
+        }
+    }
+
+    var reasoningEfforts: [ReasoningEffort] { ReasoningEffort.lowToMax }
+
+    static let `default` = AnthropicModel.sonnet
 }
 
 /// Preset MiniMax model choices surfaced in Settings. MiniMax's catalog is small
@@ -321,11 +358,20 @@ struct CoachSettings: Codable, Equatable {
         return trimmed.isEmpty ? MiniMaxModel.default.rawValue : trimmed
     }
 
+    /// The Claude model ID to send. Anything that isn't a Claude ID (a leftover from another
+    /// provider's picker) falls back to the default rather than 404ing.
+    var anthropicModel: String {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("claude-") ? trimmed : AnthropicModel.default.rawValue
+    }
+
     /// The effort levels the selected preset accepts; `nil` when unknown (a Custom
     /// slug, a non-preset stored model) or when the provider takes no effort hint.
     var knownReasoningEfforts: [ReasoningEffort]? {
         switch providerMode {
         case .userOpenAIKey: return CoachModel(rawValue: model)?.reasoningEfforts
+        // A non-preset Claude ID may not accept every level, so send no hint rather than guess.
+        case .userAnthropicKey: return AnthropicModel(rawValue: model)?.reasoningEfforts ?? []
         case .userOpenRouterKey: return OpenRouterModel(rawValue: model)?.reasoningEfforts
         // A non-preset Gemini model may be a 2.5 model, which rejects `thinkingLevel`.
         case .userGeminiKey: return GeminiModel(rawValue: model)?.reasoningEfforts ?? []

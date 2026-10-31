@@ -69,7 +69,7 @@ your sleep, heart rate, activity, and recovery.
 (heart rate, SpO₂, steps, distance, calories, sleep stages, raw packets).
 - **Today / Vitals / Sleep / Activity** dashboards built natively in SwiftUI,
 backed by SwiftData for local persistence.
-- **AI Coach** — an agentic loop (OpenAI, Google Gemini, OpenRouter, MiniMax,
+- **AI Coach** — an agentic loop (OpenAI, Anthropic Claude, Google Gemini, OpenRouter, MiniMax,
 Apple's on-device Foundation Models, or **any OpenAI-compatible server you run
 yourself** — Ollama, llama.cpp, vLLM, SGLang, LM Studio) with tools for data
 retrieval, on-the-fly analysis,

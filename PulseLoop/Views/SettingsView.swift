@@ -29,6 +29,8 @@ struct SettingsView: View {
             return "Apple on-device"
         case .userOpenAIKey:
             return CoachModel(rawValue: settings.model)?.label ?? settings.model
+        case .userAnthropicKey:
+            return AnthropicModel(rawValue: settings.model)?.label ?? settings.anthropicModel
         case .userGeminiKey:
             return GeminiModel(rawValue: settings.model)?.label ?? settings.model
         case .userOpenRouterKey:
