@@ -18,6 +18,7 @@ enum CoachClientResolver {
         // Defaulted so the four existing call sites don't each have to learn about a provider
         // whose key is optional anyway.
         localKeyStore: APIKeyStore = LocalLLMKeychainStore(),
+        anthropicKeyStore: APIKeyStore = AnthropicKeychainStore(),
         openAIClientFactory: (String) -> ResponsesClient = { OpenAIResponsesClient(apiKey: $0) }
     ) -> (key: String?, client: ResponsesClient) {
         switch settings.providerMode {
@@ -35,6 +36,7 @@ enum CoachClientResolver {
                 openAIKeyStore: openAIKeyStore, geminiKeyStore: geminiKeyStore,
                 openRouterKeyStore: openRouterKeyStore, minimaxKeyStore: minimaxKeyStore,
                 localKeyStore: localKeyStore,
+                anthropicKeyStore: anthropicKeyStore,
                 openAIClientFactory: openAIClientFactory
             )
         }
@@ -51,9 +53,13 @@ enum CoachClientResolver {
         openRouterKeyStore: APIKeyStore,
         minimaxKeyStore: APIKeyStore,
         localKeyStore: APIKeyStore,
+        anthropicKeyStore: APIKeyStore,
         openAIClientFactory: (String) -> ResponsesClient
     ) -> (key: String?, client: ResponsesClient) {
         switch mode {
+        case .userAnthropicKey:
+            let key = (try? anthropicKeyStore.readKey()) ?? nil
+            return (key, AnthropicClient(apiKey: key ?? "", model: settings.anthropicModel))
         case .userGeminiKey:
             let key = (try? geminiKeyStore.readKey()) ?? nil
             return (key, GeminiClient(apiKey: key ?? ""))

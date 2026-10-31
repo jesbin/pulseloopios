@@ -26,6 +26,7 @@ struct CoachSettingsSection: View {
     private let geminiKeyStore = GeminiKeychainStore()
     private let openRouterKeyStore = OpenRouterKeychainStore()
     private let minimaxKeyStore = MiniMaxKeychainStore()
+    private let anthropicKeyStore = AnthropicKeychainStore()
     private let localKeyStore = LocalLLMKeychainStore()
 
     /// Picker tag that selects the free-text "Custom" OpenRouter model entry.
@@ -42,6 +43,8 @@ struct CoachSettingsSection: View {
             return selected == customModelTag ? "Custom…" : (OpenRouterModel(rawValue: selected)?.label ?? selected)
         case .userMiniMaxKey:
             return MiniMaxModel(rawValue: selected)?.label ?? selected
+        case .userAnthropicKey:
+            return AnthropicModel(rawValue: selected)?.label ?? selected
         case .localOpenAICompat:
             return store.settings.resolvedLocalModel.isEmpty ? "Not set" : store.settings.resolvedLocalModel
         default:
@@ -73,6 +76,12 @@ struct CoachSettingsSection: View {
     @State private var showMiniMaxKey: Bool = false
     @State private var minimaxKeyError: String?
 
+    // Anthropic key state
+    @State private var anthropicKeyDraft: String = ""
+    @State private var hasAnthropicKey: Bool = false
+    @State private var showAnthropicKey: Bool = false
+    @State private var anthropicKeyError: String?
+
     // Local / self-hosted state. The key is optional here, so it has the same shape as the others
     // but never gates anything.
     @State private var localKeyDraft: String = ""
@@ -86,6 +95,7 @@ struct CoachSettingsSection: View {
         case .userGeminiKey: hasKey = hasGeminiKey
         case .userOpenRouterKey: hasKey = hasOpenRouterKey
         case .userMiniMaxKey: hasKey = hasMiniMaxKey
+        case .userAnthropicKey: hasKey = hasAnthropicKey
         // The local provider's key is optional; a usable base URL is what makes it ready. Mirrors
         // the readiness sentinel in `CoachClientResolver`, which is what actually gates a turn.
         case .localOpenAICompat: hasKey = LocalEndpoint.validate(store.settings.localBaseURL) == nil
@@ -175,6 +185,10 @@ struct CoachSettingsSection: View {
                                 ForEach(MiniMaxModel.allCases) { model in
                                     Text(model.label).tag(model.rawValue)
                                 }
+                            case .userAnthropicKey:
+                                ForEach(AnthropicModel.allCases) { model in
+                                    Text(model.label).tag(model.rawValue)
+                                }
                             default:
                                 ForEach(CoachModel.allCases) { model in
                                     Text(model.label).tag(model.rawValue)
@@ -251,6 +265,17 @@ struct CoachSettingsSection: View {
                     onSave: saveMiniMaxKey,
                     onRemove: removeMiniMaxKey
                 )
+            } else if effectiveKeyProvider == .userAnthropicKey {
+                apiKeyField(
+                    placeholder: "sk-ant-…",
+                    hint: "Stored only in your device Keychain. Used to call Anthropic directly.",
+                    draft: $anthropicKeyDraft,
+                    showRaw: $showAnthropicKey,
+                    hasSaved: hasAnthropicKey,
+                    error: anthropicKeyError,
+                    onSave: saveAnthropicKey,
+                    onRemove: removeAnthropicKey
+                )
             }
 
             if store.settings.providerMode == .localOpenAICompat {
@@ -295,6 +320,9 @@ struct CoachSettingsSection: View {
                 // for providers that can actually search.
                 if store.settings.providerMode != .appleOnDevice,
                    store.settings.providerMode != .userMiniMaxKey,
+                   // Not wired up for Claude yet: hosted web search needs server-tool blocks
+                   // replayed in the history, which this first version doesn't do.
+                   store.settings.providerMode != .userAnthropicKey,
                    // No local engine hosts a web-search tool; `LocalOpenAICompatClient` drops the
                    // spec defensively, and offering the switch would only promise something the
                    // server can't do.
@@ -522,6 +550,10 @@ struct CoachSettingsSection: View {
                     // MiniMax has no web search; clear any leftover-on state so the
                     // (now hidden) toggle can't linger enabled.
                     store.settings.enableWebSearch = false
+                case .userAnthropicKey:
+                    store.settings.model = AnthropicModel.default.rawValue
+                    // No hosted web search for Claude yet; clear any leftover-on state.
+                    store.settings.enableWebSearch = false
                 default:
                     store.settings.model = CoachModel.default.rawValue
                 }
@@ -609,6 +641,7 @@ struct CoachSettingsSection: View {
         hasGeminiKey = ((try? geminiKeyStore.readKey()) ?? nil) != nil
         hasOpenRouterKey = ((try? openRouterKeyStore.readKey()) ?? nil) != nil
         hasMiniMaxKey = ((try? minimaxKeyStore.readKey()) ?? nil) != nil
+        hasAnthropicKey = ((try? anthropicKeyStore.readKey()) ?? nil) != nil
         hasLocalKey = ((try? localKeyStore.readKey()) ?? nil) != nil
     }
 
@@ -701,6 +734,29 @@ struct CoachSettingsSection: View {
             refreshKeyState()
         } catch {
             minimaxKeyError = error.localizedDescription
+        }
+    }
+
+    private func saveAnthropicKey() {
+        anthropicKeyError = nil
+        do {
+            try anthropicKeyStore.saveKey(anthropicKeyDraft)
+            anthropicKeyDraft = ""
+            showAnthropicKey = false
+            refreshKeyState()
+        } catch {
+            anthropicKeyError = error.localizedDescription
+        }
+    }
+
+    private func removeAnthropicKey() {
+        anthropicKeyError = nil
+        do {
+            try anthropicKeyStore.deleteKey()
+            anthropicKeyDraft = ""
+            refreshKeyState()
+        } catch {
+            anthropicKeyError = error.localizedDescription
         }
     }
 }

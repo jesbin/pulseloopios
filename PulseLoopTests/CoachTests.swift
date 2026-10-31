@@ -22,9 +22,11 @@ final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var statusCode = 200
     nonisolated(unsafe) static var lastRequestURL: URL?
     nonisolated(unsafe) static var lastRequestBody: Data?
+    nonisolated(unsafe) static var lastRequestHeaders: [String: String] = [:]
 
     override class func canInit(with request: URLRequest) -> Bool {
         Self.lastRequestURL = request.url
+        Self.lastRequestHeaders = request.allHTTPHeaderFields ?? [:]
         Self.lastRequestBody = request.httpBody ?? request.httpBodyStream.flatMap { stream in
             stream.open(); defer { stream.close() }
             var data = Data()
@@ -601,11 +603,30 @@ final class ReasoningEffortTests: XCTestCase {
         XCTAssertTrue(settings(.userMiniMaxKey, MiniMaxModel.m3.rawValue, nil).reasoningEffortOptions.isEmpty)
     }
 
+    /// Claude presets take the full low…max range; a non-preset ID gets no hint at all
+    /// (not every level is valid on every model), and a stray non-Claude model string left over
+    /// from another provider falls back to the default model instead of 404ing.
+    func testAnthropicEffortAndModelResolution() {
+        let sonnet = settings(.userAnthropicKey, AnthropicModel.sonnet.rawValue, "xhigh")
+        XCTAssertEqual(sonnet.reasoningEffortOptions, ReasoningEffort.lowToMax)
+        XCTAssertEqual(sonnet.resolvedReasoningEffort, "xhigh")
+
+        let custom = settings(.userAnthropicKey, "claude-future-9", "high")
+        XCTAssertTrue(custom.reasoningEffortOptions.isEmpty)
+        XCTAssertNil(custom.resolvedReasoningEffort)
+        XCTAssertEqual(custom.anthropicModel, "claude-future-9")
+
+        let leftover = settings(.userAnthropicKey, "gpt-6.1-sol", nil)
+        XCTAssertEqual(leftover.anthropicModel, AnthropicModel.default.rawValue)
+        XCTAssertEqual(settings(.userAnthropicKey, "", nil).anthropicModel, AnthropicModel.default.rawValue)
+    }
+
     /// Every curated preset has a price, so the usage view never shows
     /// "cost unavailable" for a model the picker offers.
     func testEveryPresetIsPriced() {
         let presets = CoachModel.allCases.map(\.rawValue) + GeminiModel.allCases.map(\.rawValue)
             + OpenRouterModel.allCases.map(\.rawValue) + MiniMaxModel.allCases.map(\.rawValue)
+            + AnthropicModel.allCases.map(\.rawValue)
         for model in presets {
             XCTAssertNotNil(CoachPricingCatalog.price(for: model), "\(model) has no price")
         }
